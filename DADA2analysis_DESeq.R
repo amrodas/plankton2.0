@@ -1,4 +1,4 @@
-setwd("/Volumes/My_life/Plankton/Plankton/DADA2")
+setwd("/Volumes/My_life/Plankton/Plankton/plankton2.0")
 
 # DOWNLOADING (installing) packages ----
 # YOU ONLY HAVE TO execute just once when first using a script:
@@ -472,6 +472,11 @@ conditions <- sam_info %>%
 
 table(conditions$SampleID %in% goods$cdat)
 head(conditions)
+summary(conditions)
+
+#make conditions with mean max time for sites we have----
+tempconditions <- merge(conditions, meansbysite, by="Site", all=T)
+summary(tempconditions$Site)
 
 # plotting by type
 scores <- goods.pcoa$vectors
@@ -556,9 +561,10 @@ ssr=OTUsummary(mm,gs,otus=signifOTU(ss),relative=TRUE)
 # displaying effect sizes and p-values for significant OTUs
 ss$otuWise[sigs]
 
+
+#capscale ----
 # save(sam_info, goods, goods.log, sigs, ss, file="mcmcanalysis.Rdata")
 load("mcmcanalysis.Rdata")
-#capscale ----
 # specify groups
 head(sam_info)
 table(sam_info$SampleID %in% goods$cdat)
@@ -624,7 +630,7 @@ step(cmd)
 
 adonis(goods.log~siteType+site,metaData,distance="manhattan")
 
-save(conditions, goods.log, otu_taxa, file="heatmap.RData")
+#save(conditions, goods.log, otu_taxa, file="heatmap.RData")
 load("heatmap.Rdata")
 #heat map atempt----
 # install.packages("pheatmap")
