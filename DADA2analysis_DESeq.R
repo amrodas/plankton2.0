@@ -26,8 +26,6 @@ inshore_sites <- c("PuntaDonato", "STRIPoint", "Cristobal", "PuntaLaurel")
 
 # Make a new column called `siteType` that (as a factor) enters the text "inshore" if the site name is contained in the vector `inshore_sites` and enters the text "offshore" if it isn't
 sample_info$siteType <- as.factor(ifelse(sample_info$Site %in% inshore_sites, "inshore","offshore"))
-
-# Check to make sure it did what you wanted to do
 summary(sample_info)
 
 # Rename the column called `Number` to `tech_rep` and make it a factor
@@ -40,9 +38,8 @@ sam_info <- sample_info %>%
             dplyr::select(SampleID, Site, Time, techRep, siteType)
 head(sam_info)
 
-# Load fastq files (sequencing samples) -------
-# Set path to unzipped, renamed fastq files
-path <- "/Volumes/My_life/Plankton/Plankton/DADA2/Plankton_data/" # set the path to where the fastq files are. This may be an external harddrive. It dosn't have to be your working directory. It will look something like this... "/Volumes/ExtDrive/Folder1/"
+# Set path to unzipped, renamed fastq files (sequencing samples)
+path <- "/Volumes/My_life/Plankton/Plankton/DADA2/Plankton_data/"
 fns <- list.files(path)
 fns
 
@@ -59,11 +56,10 @@ head(sample.names)
 fnFs <- file.path(path, fnFs)
 fnRs <- file.path(path, fnRs)
 
-# Visualize raw data -------
+# Visualize raw data 
 
 # First, lets look at quality profile of R1 reads. Plot the first and last 4 samples.
 # This function plots a visual summary of the distribution of quality scores as a function of sequence position for the input fastq file.
-
 plotQualityProfile(fnFs[c(1:4)])
 plotQualityProfile(fnFs[c(74:77)])
 # Where do the base call qualities get lower than ~30? -----> ~250 bp in forward reads
@@ -74,12 +70,10 @@ plotQualityProfile(fnRs[c(74:77)])
 # Where do the base call qualities get lower than ~30? -----> ~200 bp in forward reads
 
 
-# The reverse reads are significantly worse quality, especially at the end, which is common in Illumina sequencing.
+# The reverse reads are significantly worse quality, especially at the end, common in Illumina sequencing.
 # This isn’t too worrisome, DADA2 incorporates quality information into its error model which makes the algorithm more robust, 
 # but trimming as the average qualities crash is still a good idea as long as our reads will still overlap. 
 
-# The distribution of quality scores at each position is shown as a grey-scale heat map, with dark colors corresponding to higher frequency. 
-# Green is the mean, orange is the median, and the dashed orange lines are the 25th and 75th quantiles.
 # Recommend trimming where quality profile crashes
 
 # Make directory and filenames for the filtered fastqs
@@ -88,7 +82,7 @@ if(!file_test("-d", filt_path)) dir.create(filt_path)
 filtFs <- file.path(filt_path, paste0(sample.names, "_F_filt.fastq.gz"))
 filtRs <- file.path(filt_path, paste0(sample.names, "_R_filt.fastq.gz"))
 
-# Filter and Trim (this takes awhile) ------
+# Filter and Trim (this takes awhile) 
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
               truncLen=c(250,200),
               maxN=0, # DADA does not allow Ns
@@ -111,24 +105,32 @@ mean(out_stats$perc_reads_remaining) # we only lost 20% of the reads
 sum(out_stats)
 
 # Save the out file 
-save(sam_info, out, filtFs, filtRs, sample.names, file="outData.RData")
+#save(sam_info, out, filtFs, filtRs, sample.names, file="outData.RData")
 
-# Load the out file -------
+# For DADA2 alaysis-------
 load("outData.RData")
 
 # A word on Expected Errors vs a blanket quality threshold
-# Take a simple example: a read of length two with quality scores Q3 and Q40, corresponding to error probabilities P=0.5 and P=0.0001. The base with Q3 is much more likely to have an error than the base with Q40 (0.5/0.0001 = 5,000 times more likely), so we can ignore the Q40 base to a good approximation. Consider a large sample of reads with (Q3, Q40), then approximately half of them will have an error (because of the P=0.5 from the Q2 base). We express this by saying that the expected number of errors in a read with quality scores (Q3, Q40) is 0.5.
-# As this example shows, low Q scores (high error probabilities) dominate expected errors, but this information is lost by averaging if low Qs appear in a read with mostly high Q scores. This explains why expected errors is a much better indicator of read accuracy than average Q.
+# Take a simple example: a read of length two with quality scores Q3 and Q40, corresponding to error 
+# probabilities P=0.5 and P=0.0001. The base with Q3 is much more likely to have an error than the base with Q40 
+# (0.5/0.0001 = 5,000 times more likely), so we can ignore the Q40 base to a good approximation. Consider a large 
+# sample of reads with (Q3, Q40), then approximately half of them will have an error (because of the P=0.5 from 
+# the Q2 base). We express this by saying that the expected number of errors in a read with quality scores (Q3, Q40) is 0.5.
+# As this example shows, low Q scores (high error probabilities) dominate expected errors, but this information 
+# is lost by averaging if low Qs appear in a read with mostly high Q scores. This explains why expected errors 
+# is a much better indicator of read accuracy than average Q.
 
-# Learn Error Rates -----
-
-# DADA2 learns its error model from the data itself by alternating estimation of the error rates and the composition of the sample until they converge on a jointly consistent solution (this is similar to the E-M algorithm)
-#As in many optimization problems, the algorithm must begin with an initial guess, for which the maximum possible error rates in this data are used (the error rates if only the most abundant sequence is correct and all the rest are errors).
+# Learn Error Rates
+# DADA2 learns its error model from the data itself by alternating estimation of the error rates 
+# and the composition of the sample until they converge on a jointly consistent solution (this is similar to the E-M algorithm)
+# As in many optimization problems, the algorithm must begin with an initial guess, for which the maximum possible 
+# error rates in this data are used (the error rates if only the most abundant sequence is correct and all the rest are errors).
 
 
 setDadaOpt(MAX_CONSIST=30) #increase number of cycles to allow convergence
+# Forward reads
 errF <- learnErrors(filtFs, multithread=TRUE)
-
+# Reverse reads
 errR <- learnErrors(filtRs, multithread=TRUE)
 
 #sanity check: visualize estimated error rates
@@ -140,15 +142,13 @@ errR <- learnErrors(filtRs, multithread=TRUE)
 plotErrors(errF, nominalQ=TRUE)
 plotErrors(errR, nominalQ=TRUE)
 
-#why do values increase at Q40 in some plots?
-#this artefact exists b/c in many sequencing runs there are almost no Q=40 bases. The loess smoothing hits the edge and a lack of observations, causing weird behavior. BUT as there essentially aren't (almost) any Q=40 bases to correct anyway and at the worst, the error rates are overestimated, so it's actually conservative for calling new variants
-
-
-# Dereplicate reads ---
-
-# Dereplication combines all identical sequencing reads into into “unique sequences” with a corresponding “abundance”: the number of reads with that unique sequence. 
+# Dereplicate reads
+# Dereplication combines all identical sequencing reads into into “unique sequences” with a corresponding 
+# “abundance”: the number of reads with that unique sequence. 
 # Dereplication substantially reduces computation time by eliminating redundant comparisons.
-# DADA2 retains a summary of the quality information associated with each unique sequence. The consensus quality profile of a unique sequence is the average of the positional qualities from the dereplicated reads. These quality profiles inform the error model of the subsequent denoising step, significantly increasing DADA2’s accuracy.
+# DADA2 retains a summary of the quality information associated with each unique sequence. The consensus 
+# quality profile of a unique sequence is the average of the positional qualities from the dereplicated reads. 
+# These quality profiles inform the error model of the subsequent denoising step, significantly increasing DADA2’s accuracy.
 
 derepFs <- derepFastq(filtFs, verbose=TRUE)
 derepRs <- derepFastq(filtRs, verbose=TRUE)
@@ -157,31 +157,24 @@ derepRs <- derepFastq(filtRs, verbose=TRUE)
 names(derepFs) <- sample.names
 names(derepRs) <- sample.names
 
-# Infer Sequence Variants ----
-
-# Must change some of the DADA options b/c original program optomized for ribosomal data, not ITS - from github, 
-#"We currently recommend BAND_SIZE=32 for ITS data." leave as default for 16S/18S
+# Infer Sequence Variants 
 #takes a long time
 
 setDadaOpt(BAND_SIZE=32)
-
+# DADA analysis on forward and reverse reads 
 dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
 dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
 
 # now, look at the dada class objects by sample
 # will tell how many 'real' variants in unique input seqs
-# By default, the dada function processes each sample independently, but pooled processing is available with pool=TRUE and that may give better results for low sampling depths at the cost of increased computation time. See our discussion about pooling samples for sample inference. 
-
+# By default, the dada function processes each sample independently, but pooled processing is available with 
+# pool=TRUE and that may give better results for low sampling depths at the cost of increased computation time. 
+# See our discussion about pooling samples for sample inference. 
 dadaFs[[70]]
 dadaRs[[70]]
 
 
-# Merge paired reads 
-
-
-# To further cull spurious sequence variants
-# Merge the denoised forward and reverse reads
-# Paired reads that do not exactly overlap are removed
+# Merge paired reads. Paired reads that do not exactly overlap are removed
 
 mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
 
@@ -190,10 +183,11 @@ mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
 head(mergers[[70]])
 summary((mergers[[70]]))
 
-# We now have a data.frame for each sample with the merged $sequence, its $abundance, and the indices of the merged $forward and $reverse denoised sequences. Paired reads that did not exactly overlap were removed by mergePairs.
+# We now have a data.frame for each sample with the merged $sequence, its $abundance, and the 
+# indices of the merged $forward and $reverse denoised sequences. Paired reads that did not 
+# exactly overlap were removed by mergePairs.
 
 # Construct sequence table
-
 # a higher-resolution version of the “OTU table” produced by classical methods
 
 seqtab <- makeSequenceTable(mergers)
@@ -201,17 +195,10 @@ dim(seqtab)
 
 # Inspect distribution of sequence lengths
 table(nchar(getSequences(seqtab)))
+plot(table(nchar(getSequences(seqtab))), xlab="BP", ylab="abundance", main="Histogram of sequence lengths")
 
-plot(table(nchar(getSequences(seqtab))), xlab="BP", ylab="abundance", main="Histogram of sequence lengths") #real variants appear to be right in that 294-304 window
-
-# The sequence table is a matrix with rows corresponding to (and named by) the samples, and 
-# columns corresponding to (and named by) the sequence variants. 
-# Do merged sequences all fall in the expected range for amplicons? ITS2 Pochon ~340bp-41bp primers; accept 294-304
-# Sequences that are much longer or shorter than expected may be the result of non-specific priming, and may be worth removing
-
-seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% seq(365 ,386)] #again, being fairly conservative wrt length
-
-
+# 365-386 based on histogram of sequence lengths and where there were more (at a faily conservative length)
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% seq(365 ,386)] 
 table(nchar(getSequences(seqtab2)))
 dim(seqtab2)
 
@@ -225,8 +212,8 @@ dim(seqtab2)
 
 seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
-
 sum(seqtab.nochim)/sum(seqtab2)
+
 # The fraction of chimeras varies based on factors including experimental procedures and sample complexity, 
 # but can be substantial. Here chimeras make up about 36% of the inferred sequence variants (138-89 = 49 => 49/138), 
 # BUT those variants account for only about 0.5% of the total sequence reads
@@ -242,12 +229,13 @@ head(track)
 tail(track) 
 
 write.csv(track,file="final_sequence.csv",row.names=TRUE,quote=FALSE)
-
+# Checking how much was lost over all through out the analysis
 tracklost <- as.data.frame(track) %>% 
   mutate(remaining_afterfilter = nonchim/input*100)
 mean(tracklost$remaining_afterfilter) 
 # lost 61% of reads
 
+# How much was lost at each step all looks good 
 tracklostind <- as.data.frame(track) %>% 
  mutate(remaining_filtered = filtered/input*100) %>% # lost 20% of reads
  mutate(remaining_denoised = denoised/filtered*100) %>% # lost 0% of reads
@@ -258,15 +246,14 @@ mean(tracklostind$remaining_nonchim)
 
 head(tracklost)
 
-# Assign Taxonomy ----
-
-
+# Assign Taxonomy
 # It is common at this point, especially in 16S/18S/ITS amplicon sequencing, to classify sequence variants taxonomically. 
 # DADA2 provides a native implementation of the RDP's naive Bayesian classifier. 
 # The assignTaxonomy function takes a set of sequences and a training set of taxonomically classified sequences, and outputs 
 # the taxonomic assignments with at least minBoot bootstrap confidence.
 # Here, I have supplied a modified version of the GeoSymbio ITS2 database (Franklin et al. 2012)
 
+# Silva downloaded from database and then matched 
 taxa <- assignTaxonomy(seqtab.nochim, "silva_nr_v132_train_set.fa", 
                        minBoot = 5,
                        multithread = TRUE,
@@ -277,8 +264,7 @@ summary(taxa)
 # All Eukaryotes!!!
 # Most class = Maxillopoda
 
-# Tidy up before saving
-# Right now the rownames of the sample variable table (sam_info) and the OTU table (seqtab.nochim) don't match
+# Rownames of the sample variable table (sam_info) and the OTU table (seqtab.nochim) don't match
 rownames(seqtab.nochim)
 rownames(sam_info) <- sam_info$SampleID
 rownames(sam_info)
@@ -290,13 +276,11 @@ rownames(seqtab.nochim)
 identical(sort(rownames(seqtab.nochim)),sort(rownames(sam_info)))
 # they match now!
 
-# END DADA2 (save) and START PHYLOSEQ (load) ------
+# START PHYLOSEQ (load) ------
 # save(sam_info, seqtab.nochim, taxa, file = "dada2_output.Rdata")
 
-load("dada2_output.Rdata") # loads sam_info (variables table) 
-                          # and seqtab.nochim (OTU table)
-                          # and taxa (taxonomy assignments)
-
+load("dada2_output.Rdata") 
+# CLEANED TILL HERE----
 # Make OTU - sequence - taxa table for later
 colnames(seqtab.nochim)[c(1:3)]
 colnames(taxa)[c(1:10)]
@@ -317,7 +301,6 @@ otu_taxa <- select(otu_taxa_seq, "Order", "ids")
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(sam_info), 
                tax_table(taxa))
-
 ps
 
 
@@ -340,9 +323,8 @@ otu_table(ps)[1:5, 1:5]
 sample_variables(ps)
 # "SampleID" "Site"     "Time"     "techRep"  "siteType"
 
-# What taxonomic ranks do we have?
+# taxonomic ranks are "Kingdom" "Phylum"  "Class"   "Order"   "Family"  "Genus"  
 rank_names(ps)
-# "Kingdom" "Phylum"  "Class"   "Order"   "Family"  "Genus"  
 
 # How many samples do we have?
 nsamples(ps)
@@ -420,7 +402,44 @@ library(tidyverse)
 
 # Load in data
 load("startHere4PCoA.Rdata")
+# DIFFERENCE BY SITE/STRI TIME
 
+# Read in data 
+alldat <- as.data.frame(seqtab.nochim)
+summary(alldat)[,1:4]
+
+# names are OTUs
+names(alldat)
+str(alldat)
+
+alldat$sample <- as.factor(row.names(alldat))
+summary(alldat)[,(ncol(alldat)-4):ncol(alldat)]
+
+# subset alldat for samples in "mid" only----
+summary(sam_info)
+
+Mid_samples <- sam_info %>%
+  filter(Time=="Mid")
+summary(Mid_samples)
+
+alldat.Mid <- alldat %>%
+  filter(sample %in% Mid_samples$SampleID)
+
+# purging under-sequenced samples; 
+# and OTUs represented in less than 3% of all samples
+
+goods <- purgeOutliers(alldat.Mid,
+                       count.columns = c(1:ncol(alldat)-1),
+                       otu.cut = 0.00001,
+                       zero.cut = 0.01)
+
+summary(goods)[,1:6]
+summary(goods)[,495:499]
+
+# creating a log-transfromed normalized dataset for PCoA:
+goods.log <- logLin(data = goods,
+                    count.columns = 2:length(names(goods)))
+summary(goods.log)[,1:6]
 # DIFFERENCE BY SITE (REMOVE STRI TIMEPOINTS) -------
 
 # Read in data 
