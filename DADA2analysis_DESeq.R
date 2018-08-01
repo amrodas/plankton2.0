@@ -14,6 +14,14 @@ library(dada2)
 library(ShortRead)
 library(phyloseq)
 library(tidyverse) # for data wrangling and ggplot2
+library(vegan)
+library(MCMC.OTU)
+library(ggfortify) # no package of this name 
+library(cluster)
+library(labdsv)
+library("pheatmap")
+library("DESeq") # no package of this name 
+library(genefilter) # no package of this name 
 
 # Making sample information table -----
 
@@ -280,7 +288,6 @@ identical(sort(rownames(seqtab.nochim)),sort(rownames(sam_info)))
 # save(sam_info, seqtab.nochim, taxa, file = "dada2_output.Rdata")
 
 load("dada2_output.Rdata") 
-# CLEANED TILL HERE----
 # Make OTU - sequence - taxa table for later
 colnames(seqtab.nochim)[c(1:3)]
 colnames(taxa)[c(1:10)]
@@ -295,20 +302,19 @@ head(seqtab.trans)
 
 # merge with taxa
 otu_taxa_seq <- merge(seqtab.trans, taxa, by = 0)
-otu_taxa <- select(otu_taxa_seq, "Order", "ids")
+# coorelate otu with taxa (removing seq info)
+otu_taxa <- select(otu_taxa_seq, "ids", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+# make sure it worked 
+head(otu_taxa)
 
 # Construct phyloseq object (straightforward from dada2 outputs)
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(sam_info), 
                tax_table(taxa))
 ps
-
-
 # Let's look at what we have for phyloseq
 otu_table(ps)[1:5, 1:5]
 # yikes, nasty column names. Change that.
-
-
 colnames(seqtab.nochim) <- ids
 head(seqtab.nochim)[2,]
 
@@ -334,18 +340,18 @@ nsamples(ps)
 tax_table(ps)[1:5, 1:6]
 # Each OTU is associated with six levels of taxonomy (KPCOFG --- no species)
 
-# Start stats ----
+# Start stats shannon/simpson ----
 
 # Visualize alpha-diversity - ***Should be done on raw, untrimmed dataset**
 # total species diversity in a landscape (gamma diversity) is determined by two different things, the mean species diversity in sites or habitats at a more local scale (alpha diversity) and the differentiation among those habitats (beta diversity)
 
 # Shannon:Shannon entropy quantifies the uncertainty (entropy or degree of surprise) associated with correctly predicting which letter will be the next in a diverse string. Based on the weighted geometric mean of the proportional abundances of the types, and equals the logarithm of true diversity. When all types in the dataset of interest are equally common, the Shannon index hence takes the value ln(actual # of types). The more unequal the abundances of the types, the smaller the corresponding Shannon entropy. If practically all abundance is concentrated to one type, and the other types are very rare (even if there are many of them), Shannon entropy approaches zero. When there is only one type in the dataset, Shannon entropy exactly equals zero (there is no uncertainty in predicting the type of the next randomly chosen entity).
-
 # Simpson:equals the probability that two entities taken at random from the dataset of interest represent the same type. equal to the weighted arithmetic mean of the proportional abundances pi of the types of interest, with the proportional abundances themselves being used as the weights. Since mean proportional abundance of the types increases with decreasing number of types and increasing abundance of the most abundant type, λ obtains small values in datasets of high diversity and large values in datasets of low diversity. This is counterintuitive behavior for a diversity index, so often such transformations of λ that increase with increasing diversity have been used instead. The most popular of such indices have been the inverse Simpson index (1/λ) and the Gini–Simpson index.
+# seperate for MID day only-----
 
 # plot Shannon and Simpson Diveristy by Site, color by Site Type (inshore vs. offshore)
 plot_richness(ps, 
-              x="Site", 
+              x="Time", 
               measures=c("Shannon", "Simpson"), 
               color="siteType") +
               geom_jitter()+
@@ -360,8 +366,6 @@ plot_richness(ps,
               geom_jitter()+
               scale_color_manual(values=c("salmon","royalblue1"))+
               theme_bw()
-
-
 
 # Ordinate Samples
 ord.nmds.bray <- ordinate(ps, method="NMDS", distance="bray",k=20)
@@ -393,12 +397,7 @@ plot_bar(ps.btm30, x="Site", fill="Phylum") +
 # save(sam_info, seqtab.nochim, taxa, ps, otu_taxa_seq, goods.log, goods, file="startHere4PCoA.Rdata")
 
 # START HERE FOR Principal coordinate analysis ----
-library(vegan)
-library(MCMC.OTU)
-library(ggfortify)
-library(cluster)
-library(labdsv)
-library(tidyverse)
+
 
 # Load in data
 load("startHere4PCoA.Rdata")
@@ -407,7 +406,6 @@ load("startHere4PCoA.Rdata")
 # Read in data 
 alldat <- as.data.frame(seqtab.nochim)
 summary(alldat)[,1:4]
-
 # names are OTUs
 names(alldat)
 str(alldat)
@@ -415,7 +413,7 @@ str(alldat)
 alldat$sample <- as.factor(row.names(alldat))
 summary(alldat)[,(ncol(alldat)-4):ncol(alldat)]
 
-# subset alldat for samples in "mid" only----
+# subset alldat for samples in "mid" only(run to make goods only Mid time pt)----
 summary(sam_info)
 
 Mid_samples <- sam_info %>%
@@ -425,51 +423,21 @@ summary(Mid_samples)
 alldat.Mid <- alldat %>%
   filter(sample %in% Mid_samples$SampleID)
 
-# purging under-sequenced samples; 
-# and OTUs represented in less than 3% of all samples
+# subset alldat for samples in "STRI" only(run to make goods only STRI)----
+STRI_samples <- sam_info %>%
+  filter(Time=="STRI")
+summary(STRI_samples)
 
-goods <- purgeOutliers(alldat.Mid,
+alldat.STRI <- alldat %>%
+  filter(sample %in% STRI_samples$SampleID)
+
+# purging under-sequenced samples; 
+# change what is being purged in alldat. depending on site or time 
+
+goods <- purgeOutliers(alldat.STRI,
                        count.columns = c(1:ncol(alldat)-1),
                        otu.cut = 0.00001,
                        zero.cut = 0.01)
-
-summary(goods)[,1:6]
-summary(goods)[,495:499]
-
-# creating a log-transfromed normalized dataset for PCoA:
-goods.log <- logLin(data = goods,
-                    count.columns = 2:length(names(goods)))
-summary(goods.log)[,1:6]
-# DIFFERENCE BY SITE (REMOVE STRI TIMEPOINTS) -------
-
-# Read in data 
-alldat <- as.data.frame(seqtab.nochim)
-summary(alldat)[,1:4]
-
-# names are OTUs
-names(alldat)
-str(alldat)
-
-alldat$sample <- as.factor(row.names(alldat))
-summary(alldat)[,(ncol(alldat)-4):ncol(alldat)]
-
-# subset alldat for samples in "mid" only (no early or late day collections because they are all from STRI) 
-summary(sam_info)
-
-Mid_samples <- sam_info %>%
-  filter(Time=="Mid")
-summary(Mid_samples)
-
-alldat.Mid <- alldat %>%
-  filter(sample %in% Mid_samples$SampleID)
-
-# purging under-sequenced samples; 
-# and OTUs represented in less than 3% of all samples
-
-goods <- purgeOutliers(alldat.Mid,
-                        count.columns = c(1:ncol(alldat)-1),
-                        otu.cut = 0.00001,
-                        zero.cut = 0.01)
 
 summary(goods)[,1:6]
 summary(goods)[,495:499]
@@ -653,7 +621,7 @@ adonis(goods.log~siteType+site,metaData,distance="manhattan")
 load("heatmap.Rdata")
 #heat map atempt----
 # install.packages("pheatmap")
-library("pheatmap")
+
 
 #top 22 significant: "OTU54"  "OTU133" "OTU134" "OTU141" "OTU219" "OTU237" "OTU249" "OTU370" 
 # "OTU409" "OTU413" "OTU428" "OTU439" "OTU446" "OTU449" "OTU454" "OTU466" "OTU499" "OTU508" 
@@ -677,11 +645,6 @@ pheatmap(as.matrix(named),
          clustering_distance_rows="correlation", cluster_cols=T)
 #add sample names at the bottom back in 
 # DESeq for Stats-------
-# load deseq
-
-library("DESeq")
-library(genefilter)
-
 # load in OTU table
 otu<-read.csv("Sep21_OutputDADA_AllOTUs_FocusYesOnly.csv")
 head(otu)
