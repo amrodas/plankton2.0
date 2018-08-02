@@ -288,6 +288,7 @@ identical(sort(rownames(seqtab.nochim)),sort(rownames(sam_info)))
 # save(sam_info, seqtab.nochim, taxa, file = "dada2_output.Rdata")
 
 load("dada2_output.Rdata") 
+
 # Make OTU - sequence - taxa table for later
 colnames(seqtab.nochim)[c(1:3)]
 colnames(taxa)[c(1:10)]
@@ -298,6 +299,7 @@ head(seqtab.trans)
 
 # create short OTU IDs
 seqtab.trans$ids <- paste0("OTU", seq(1, length(colnames(seqtab.nochim))))
+ids <-paste0("OTU", seq(1, length(colnames(seqtab.nochim))))
 head(seqtab.trans)
 
 # merge with taxa
@@ -306,6 +308,12 @@ otu_taxa_seq <- merge(seqtab.trans, taxa, by = 0)
 otu_taxa <- select(otu_taxa_seq, "ids", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
 # make sure it worked 
 head(otu_taxa)
+
+# relevel sam_info so that the order is Early -> Mid -> Late, instead of alphabetical (Early, Late, Mid)
+head(sam_info)
+levels(sam_info$Time)
+sam_info$Time <- factor(sam_info$Time, levels = c("Early", "Mid", "Late"))
+levels(sam_info$Time)
 
 # Construct phyloseq object (straightforward from dada2 outputs)
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
@@ -340,6 +348,13 @@ nsamples(ps)
 tax_table(ps)[1:5, 1:6]
 # Each OTU is associated with six levels of taxonomy (KPCOFG --- no species)
 
+# Separate data and conds objects into two groups: STRI only (AM+midday+PM) and All sites (Midday only)
+head(sam_info)
+
+# Subset the `ps` object into STRI only (all timepoints) and all site (midday only)
+psSTRI <- subset_samples(ps, Site=="STRIPoint")
+psMid <- subset_samples(ps, Time=="Mid")
+
 # Start stats shannon/simpson ----
 
 # Visualize alpha-diversity - ***Should be done on raw, untrimmed dataset**
@@ -350,57 +365,70 @@ tax_table(ps)[1:5, 1:6]
 # seperate for MID day only-----
 
 # plot Shannon and Simpson Diveristy by Site, color by Site Type (inshore vs. offshore)
-plot_richness(ps, 
-              x="Time", 
+plot_richness(psMid, 
+              x="siteType", 
               measures=c("Shannon", "Simpson"), 
               color="siteType") +
               geom_jitter()+
               scale_color_manual(values=c("salmon","royalblue1"))+
               theme_bw()
 
-# plot Shannon and Simpson Diveristy by Site Type
-plot_richness(ps, 
-              x="siteType", 
+
+# plot Shannon and Simpson Diveristy by Time of Day at STRI Point only
+plot_richness(psSTRI, 
+              x="Time", 
               measures=c("Shannon", "Simpson"), 
-              color="siteType") + 
+              color="Time") + 
               geom_jitter()+
-              scale_color_manual(values=c("salmon","royalblue1"))+
+              scale_color_manual(values=c("gold","orange","purple"))+
               theme_bw()
 
 # Ordinate Samples
-ord.nmds.bray <- ordinate(ps, method="NMDS", distance="bray",k=20)
+ord.nmds.bray.STRI <- ordinate(psSTRI, method="NMDS", distance="bray",k=20)
+ord.nmds.bray.mid <- ordinate(psMid, method="NMDS", distance="bray",k=20)
 
 # *** No convergence -- monoMDS stopping criteria:
 # ^^^^^^^^ NMDS bray doesn't converge...
 
 # Bar-plots
 
-# The top 30 most abundant OTUs
+# The top 30 most abundant OTUs between sites
 
-top30 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:30]
-ps.top30 <- transform_sample_counts(ps, function(x) x/sum(x))
+top30 <- names(sort(taxa_sums(psMid), decreasing=TRUE))[1:30]
+ps.top30 <- transform_sample_counts(psMid, function(x) x/sum(x))
 ps.top30 <- prune_taxa(top30, ps.top30)
 
 plot_bar(ps.top30, x="Site", fill="Class") + 
-  facet_wrap(~siteType, scales="free_y") + 
+  facet_wrap(~siteType, scales="free_y") +
+  geom_bar(stat="identity")+ # to get rid of obnoxious black bars
+  theme_bw()
+
+plot_bar(ps.top30, x="siteType", fill="Class") + 
+  geom_bar(stat="identity")+ # to get rid of obnoxious black bars
   theme_bw()
 
 btm30 <- names(sort(taxa_sums(ps), decreasing=FALSE))[1:30]
 ps.btm30 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.btm30 <- prune_taxa(btm30, ps.btm30)
 
-plot_bar(ps.btm30, x="Site", fill="Phylum") + 
-  facet_wrap(~siteType, scales="free_x") +
+plot_bar(ps.btm30, x="Site", fill="Class") + 
+  facet_wrap(~siteType, scales="free_y") +
+  geom_bar(stat="identity")+ # to get rid of obnoxious black bars
+  theme_bw()
+
+plot_bar(ps.btm30, x="siteType", fill="Class") + 
+  geom_bar(stat="identity")+ # to get rid of obnoxious black bars
   theme_bw()
 
 # Save
-# save(sam_info, seqtab.nochim, taxa, ps, otu_taxa_seq, goods.log, goods, file="startHere4PCoA.Rdata")
+save(sam_info, seqtab.nochim, taxa, ps, psSTRI, psMid, otu_taxa, otu_taxa_seq, file="startHere4PCoA.Rdata")
 
 # START HERE FOR Principal coordinate analysis ----
 
 
 # Load in data
 load("startHere4PCoA.Rdata")
+
 # DIFFERENCE BY SITE/STRI TIME
 
 # Read in data 
@@ -419,129 +447,209 @@ summary(sam_info)
 Mid_samples <- sam_info %>%
   filter(Time=="Mid")
 summary(Mid_samples)
+head(Mid_samples)
 
 alldat.Mid <- alldat %>%
   filter(sample %in% Mid_samples$SampleID)
+head(alldat.Mid[c(1:3)])
 
 # subset alldat for samples in "STRI" only(run to make goods only STRI)----
 STRI_samples <- sam_info %>%
-  filter(Time=="STRI")
+  filter(Site=="STRIPoint")
 summary(STRI_samples)
 
 alldat.STRI <- alldat %>%
   filter(sample %in% STRI_samples$SampleID)
+head(alldat.STRI[c(1:3)])
 
 # purging under-sequenced samples; 
 # change what is being purged in alldat. depending on site or time 
 
-goods <- purgeOutliers(alldat.STRI,
-                       count.columns = c(1:ncol(alldat)-1),
+goods.STRI <- purgeOutliers(alldat.STRI,
+                       count.columns = c(1:ncol(alldat.STRI)-1),
                        otu.cut = 0.00001,
                        zero.cut = 0.01)
+summary(goods.STRI)[,1:6]
+summary(goods.STRI)[,495:499]
 
-summary(goods)[,1:6]
-summary(goods)[,495:499]
+goods.Mid <- purgeOutliers(alldat.Mid,
+                            count.columns = c(1:ncol(alldat.Mid)-1),
+                            otu.cut = 0.00001,
+                            zero.cut = 0.01)
+summary(goods.Mid)[,1:6]
+summary(goods.Mid)[,495:499]
+
 
 # creating a log-transfromed normalized dataset for PCoA:
-goods.log <- logLin(data = goods,
-                    count.columns = 2:length(names(goods)))
-summary(goods.log)[,1:6]
+goods.log.STRI <- logLin(data = goods.STRI,
+                    count.columns = 2:length(names(goods.STRI)))
+summary(goods.log.STRI)[,1:6]
+
+
+goods.log.Mid <- logLin(data = goods.Mid,
+                         count.columns = 2:length(names(goods.Mid)))
+summary(goods.log.Mid)[,1:6]
 
 # computing Manhattan distances (sum of all log-fold-changes) and performing PCoA:
-goods.dist <- vegdist(goods.log, method = "manhattan")
-goods.pcoa <- pcoa(goods.dist)
+goods.dist.STRI <- vegdist(goods.log.STRI, method = "manhattan")
+goods.pcoa.STRI <- pcoa(goods.dist.STRI)
+
+goods.dist.Mid <- vegdist(goods.log.Mid, method = "manhattan")
+goods.pcoa.Mid <- pcoa(goods.dist.Mid)
 
 # make conditions
-table(sam_info$SampleID %in% goods$cdat)
+table(sam_info$SampleID %in% goods.STRI$cdat)
 
-conditions <- sam_info %>%
-  filter(SampleID %in% goods$cdat)
+conditions.STRI <- sam_info %>%
+  filter(SampleID %in% goods.STRI$cdat)
 
-table(conditions$SampleID %in% goods$cdat)
-head(conditions)
-summary(conditions)
+conditions.Mid <- sam_info %>%
+  filter(SampleID %in% goods.Mid$cdat)
+
+table(conditions.STRI$SampleID %in% goods.STRI$cdat)
+table(conditions.Mid$SampleID %in% goods.Mid$cdat)
 
 #make conditions with mean max time for sites we have----
-tempconditions <- merge(conditions, meansbysite, by="Site", all=T)
-summary(tempconditions$Site)
+# skipping for now...
+# tempconditions <- merge(conditions, meansbysite, by="Site", all=T)
+# summary(tempconditions$Site)
 
 # plotting by type
-scores <- goods.pcoa$vectors
+scores.STRI <- goods.pcoa.STRI$vectors
+scores.Mid <- goods.pcoa.Mid$vectors
 margin <- 0.01
-
 
 # play around with these numbers
 xaxis <- 1
 yaxis <- 2
 
-plot(scores[,xaxis], scores[,2],type="n",
-     xlim=c(min(scores[,xaxis])-margin,max(scores[,xaxis])+margin),
-     ylim=c(min(scores[,2])-margin,max(scores[,2])+margin),
+plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
+     xlim=c(min(scores.Mid[,xaxis])-margin,max(scores.Mid[,xaxis])+margin),
+     ylim=c(min(scores.Mid[,2])-margin,max(scores.Mid[,2])+margin),
      mgp=c(2.3,1,0),
-     xlab=paste("Axis", xaxis,"(", round(goods.pcoa$values$Relative_eig[xaxis]*100,1),"%)",sep=""),
-     ylab=paste("Axis", yaxis,"(", round(goods.pcoa$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
-     main="PCoA by STRI Time Points") +
+     xlab=paste("Axis", xaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[xaxis]*100,1),"%)",sep=""),
+     ylab=paste("Axis", yaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
+     main="PCoA by Site Ttype (Midday Only)") +
+  ordihull(scores.Mid,conditions.Mid$siteType,label=F, draw = "polygon", col = c("royalblue4", "salmon", alpha = 255))
+
+  # inshore sites
+  points(scores.Mid[conditions.Mid$Site=="PuntaDonato",xaxis],scores.Mid[conditions.Mid$Site=="PuntaDonato",yaxis], col="salmon", pch=19) +
+  points(scores.Mid[conditions.Mid$Site=="STRIPoint",xaxis],scores.Mid[conditions.Mid$Site=="STRIPoint",yaxis], col="salmon", pch=17) +  
+  points(scores.Mid[conditions.Mid$Site=="Cristobal",xaxis],scores.Mid[conditions.Mid$Site=="Cristobal",yaxis], col="salmon", pch=15) +
+  points(scores.Mid[conditions.Mid$Site=="PuntaLaurel",xaxis],scores.Mid[conditions.Mid$Site=="PuntaLaurel",yaxis], col="salmon", pch=18) 
+
+  # offshore sites
+  points(scores.Mid[conditions.Mid$Site=="DragoMar",xaxis],scores.Mid[conditions.Mid$Site=="DragoMar",yaxis], col="royalblue4", pch=1) +
+  points(scores.Mid[conditions.Mid$Site=="BastimentosN",xaxis],scores.Mid[conditions.Mid$Site=="BastimentosN",yaxis], col="royalblue4", pch=2) +
+  points(scores.Mid[conditions.Mid$Site=="BastimentosS",xaxis],scores.Mid[conditions.Mid$Site=="BastimentosS",yaxis], col="royalblue4", pch=0) +
+  points(scores.Mid[conditions.Mid$Site=="PopaIsland",xaxis],scores.Mid[conditions.Mid$Site=="PopaIsland",yaxis], col="royalblue4", pch=5)
+  
+  legend(100,100, c("PuntaDonato","DragoMar","STRIPoint","BastimentosN","Cristobal","BastimentosS","PuntaLaurel","PopaIsland"), pch=c(19,1,17,2,15,0,18,5), col=c("salmon","royalblue4"), cex=0.5, bty = "n")
+  
+  
+plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
+       xlim=c(min(scores.STRI[,xaxis])-margin,max(scores.STRI[,xaxis])+margin),
+       ylim=c(min(scores.STRI[,2])-margin,max(scores.STRI[,2])+margin),
+       mgp=c(2.3,1,0),
+       xlab=paste("Axis", xaxis,"(", round(goods.pcoa.STRI$values$Relative_eig[xaxis]*100,1),"%)",sep=""),
+       ylab=paste("Axis", yaxis,"(", round(goods.pcoa.STRI$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
+       main="PCoA by Time (STRI Only)") +
+    ordispider(scores.STRI,conditions.STRI$Time,label=F,lwd=2,col = c("gold", "orange", "blue"))
 #STRIPoint by time of day 
- # points(scores[conditions$Time=="Early",xaxis],scores[conditions$Time=="Early",yaxis], col="red", pch=19) +
- # points(scores[conditions$Time=="Mid",xaxis],scores[conditions$Time=="Mid",yaxis], col="purple", pch=17) +
- # points(scores[conditions$Time=="Late",xaxis],scores[conditions$Time=="Late",yaxis], col="green", pch=15) 
-  
-  
-# inshore sites
-points(scores[conditions$Site=="PuntaDonato",xaxis],scores[conditions$Site=="PuntaDonato",yaxis], col="salmon", pch=19) +
-points(scores[conditions$Site=="STRIPoint",xaxis],scores[conditions$Site=="STRIPoint",yaxis], col="salmon", pch=17) +  
-points(scores[conditions$Site=="Cristobal",xaxis],scores[conditions$Site=="Cristobal",yaxis], col="salmon", pch=15) +
-points(scores[conditions$Site=="PuntaLaurel",xaxis],scores[conditions$Site=="PuntaLaurel",yaxis], col="salmon", pch=18) 
-# offshore sites
-points(scores[conditions$Site=="DragoMar",xaxis],scores[conditions$Site=="DragoMar",yaxis], col="royalblue4", pch=1) +
-points(scores[conditions$Site=="BastimentosN",xaxis],scores[conditions$Site=="BastimentosN",yaxis], col="royalblue4", pch=2) +
-points(scores[conditions$Site=="BastimentosS",xaxis],scores[conditions$Site=="BastimentosS",yaxis], col="royalblue4", pch=0) +
-points(scores[conditions$Site=="PopaIsland",xaxis],scores[conditions$Site=="PopaIsland",yaxis], col="royalblue4", pch=5)
-  ordihull(scores,conditions$Time,label=T, draw = "polygon", col = c("royalblue4", "salmon", alpha = 255))
-  legend("bottomright", c("PuntaDonato","DragoMar","STRIPoint","BastimentosN","Cristobal","BastimentosS","PuntaLaurel","PopaIsland"), pch=c(19,1,17,2,15,0,18,5), col=c("salmon","royalblue4"), cex=0.5, bty = "n")
-  
+  points(scores.STRI[conditions.STRI$Time=="Early",xaxis],scores.STRI[conditions.STRI$Time=="Early",yaxis], col="gold", pch=19) +
+  points(scores.STRI[conditions.STRI$Time=="Mid",xaxis],scores.STRI[conditions.STRI$Time=="Mid",yaxis], col="orange", pch=17) +
+  points(scores.STRI[conditions.STRI$Time=="Late",xaxis],scores.STRI[conditions.STRI$Time=="Late",yaxis], col="blue", pch=15) 
+
+    
 # MCMC OTU analysis on site type midday only -----
   
 # reformat data for mcmc.otu
-goods.mcmc <- merge(goods,conditions, by = 1)
-names(goods.mcmc)[c(1:3)]
-names(goods.mcmc)[c(499:503)]
-names(goods.mcmc)[1] <- "sample"
-goods.mcmc_taxa <- merge(goods.mcmc,otu_taxa, by= "ids")
+goods.mcmc.STRI <- merge(goods.STRI,conditions.STRI, by = 1)
+names(goods.mcmc.STRI)[c(1:3)]
+names(goods.mcmc.STRI)[c(528:531)]
+names(goods.mcmc.STRI)[1] <- "sample"
+
+goods.mcmc.Mid <- merge(goods.Mid,conditions.Mid, by = 1)
+names(goods.mcmc.Mid)[c(1:3)]
+names(goods.mcmc.Mid)[c(499:503)]
+names(goods.mcmc.Mid)[1] <- "sample"
+
+# can't figure this out right now... skipping it 2August2018
+# head(goods.mcmc.STRI[c(1:2)])
+# head(otu_taxa)
+# goods.mcmc_taxa.STRI <- merge(goods.mcmc.STRI,otu_taxa, by = "ids")
+
 # stacking the data table
-gs <- otuStack(goods.mcmc,
-    count.columns=c(2:(ncol(goods.mcmc)-4)),
-    condition.columns = c(1,500:503))
-head(gs)
+gs.STRI <- otuStack(goods.mcmc.STRI,
+    count.columns=c(2:(ncol(goods.mcmc.STRI)-4)),
+    condition.columns = c(1,528:531))
+head(gs.STRI)
+
+gs.Mid <- otuStack(goods.mcmc.Mid,
+                    count.columns=c(2:(ncol(goods.mcmc.Mid)-4)),
+                    condition.columns = c(1,500:503))
+head(gs.Mid)
 
 # fitting the model
-mm <- mcmc.otu(
-  fixed = "siteType",
-  data = gs
+mm.STRI <- mcmc.otu(
+  fixed = "Time",
+  data = gs.STRI
 )
 
-summary(mm)
+summary(mm.STRI)
+
+mm.Mid <- mcmc.otu(
+  fixed = "siteType",
+  data = gs.Mid
+)
+
+summary(mm.Mid)
 
 # selecting the OTUs that were modeled reliably
-acpass <- otuByAutocorr(mm,gs)
-head(acpass)
+acpass.STRI <- otuByAutocorr(mm.STRI,gs.STRI)
+head(acpass.STRI)
+
+acpass.Mid <- otuByAutocorr(mm.Mid,gs.Mid)
+head(acpass.Mid)
 
 # calculating effect sizes and p-values:
-ss <- OTUsummary(mm,gs,summ.plot=FALSE)
+ss.STRI <- OTUsummary(mm.STRI,gs.STRI,summ.plot=FALSE)
+ss.Mid <- OTUsummary(mm.Mid,gs.Mid,summ.plot=FALSE)
 
 # correcting for mutliple comparisons (FDR)
-ss <- padjustOTU(ss)
+ss.STRI <- padjustOTU(ss.STRI)
+ss.Mid <- padjustOTU(ss.Mid)
 
 # getting significatly changing OTUs (FDR<0.05)
-sigs <- signifOTU(ss, p.cutoff = 0.015)
-head(sigs)
-sigs
+sigs.STRI <- signifOTU(ss.STRI, p.cutoff = 0.015)
+head(sigs.STRI)
+sigs.STRI
+
+
+sigs.Mid <- signifOTU(ss.Mid, p.cutoff = 0.015)
+head(sigs.Mid)
+sigs.Mid
+
 # plotting them
 quartz()
-ss2 <- OTUsummary(mm,gs_order,otus=sigs)
+
+
+
+
+
+
+
+
+
+
+
+# stopping here.. what is gs_order???
+ss2.STRI <- OTUsummary(mm.STRI,gs_order,otus=sigs.STRI)
+
 #wont let me edit the plot----
 ss2 + labs(x= "sitetype", y="propotion") 
 ss2
+
 # bar-whiskers graph of relative changes:
 gs_order <- merge(gs, otu_taxa, by= 2)
 ssr=OTUsummary(mm,gs,otus=signifOTU(ss),relative=TRUE)
@@ -550,8 +658,14 @@ ss$otuWise[sigs]
 
 
 #capscale ----
-# save(sam_info, goods, goods.log, sigs, ss, file="mcmcanalysis.Rdata")
+
+save(sam_info, goods.STRI, goods.Mid, goods.log.STRI, goods.log.Mid, 
+     mm.STRI, mm.Mid, 
+     sigs.STRI, sigs.Mid, ss.STRI, ss.Mid, 
+     file="mcmcanalysis.Rdata")
+
 load("mcmcanalysis.Rdata")
+
 # specify groups
 head(sam_info)
 table(sam_info$SampleID %in% goods$cdat)
