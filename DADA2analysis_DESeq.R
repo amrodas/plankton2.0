@@ -495,8 +495,8 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
      mgp=c(2.3,1,0),
      xlab=paste("Axis", xaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[xaxis]*100,1),"%)",sep=""),
      ylab=paste("Axis", yaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
-     main="PCoA by Site Ttype (Midday Only)") +
-  ordihull(scores.Mid,conditions.Mid$siteType,label=F, draw = "polygon", col = c("salmon", "royalblue4", alpha = 255))
+     main="PCoA by Site Ttype (Midday Only)") + 
+  ordihull(scores.Mid,conditions.Mid$Site,label=F, draw = "polygon", col = c("royalblue4", "royalblue4", "salmon","royalblue4", "royalblue4", "salmon","salmon", "salmon", alpha = 255))
 
   # inshore sites
   points(scores.Mid[conditions.Mid$Site=="PuntaDonato",xaxis],scores.Mid[conditions.Mid$Site=="PuntaDonato",yaxis], col="salmon", pch=19) +
@@ -510,7 +510,10 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
   points(scores.Mid[conditions.Mid$Site=="BastimentosS",xaxis],scores.Mid[conditions.Mid$Site=="BastimentosS",yaxis], col="royalblue4", pch=0) +
   points(scores.Mid[conditions.Mid$Site=="PopaIsland",xaxis],scores.Mid[conditions.Mid$Site=="PopaIsland",yaxis], col="royalblue4", pch=5)
   
-  legend(100,50, c("PuntaDonato","DragoMar","STRIPoint","BastimentosN","Cristobal","BastimentosS","PuntaLaurel","PopaIsland"), pch=c(19,1,17,2,15,0,18,5), col=c("salmon","royalblue4"), cex=0.5, bty = "n")
+  legend(86,-20, 
+         c("PuntaDonato","STRIPoint","Cristobal","PuntaLaurel","BastimentosN","BastimentosS","DragoMar","PopaIsland"),
+           pch=c(19,17,15,18,1,2,0,5), 
+         col=c("salmon", "salmon","salmon","salmon","royalblue4","royalblue4","royalblue4","royalblue4"), cex=0.4, bty = "n")
   
   
 plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
@@ -521,14 +524,24 @@ plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
        ylab=paste("Axis", yaxis,"(", round(goods.pcoa.STRI$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
        main="PCoA by Time (STRI Only)") +
       ordihull(scores.STRI,conditions.STRI$Time,label=F, 
-               draw = "polygon", col = c("gold", "orange","blue", alpha = 255))
+               draw = "polygon", col = c("orange", "green","blue", alpha = 255))
       # ordispider(scores.STRI,conditions.STRI$Time,label=F,lwd=2,col = c("gold", "orange", "blue"))
 #STRIPoint by time of day 
-  points(scores.STRI[conditions.STRI$Time=="Early",xaxis],scores.STRI[conditions.STRI$Time=="Early",yaxis], col="gold", pch=19) +
-  points(scores.STRI[conditions.STRI$Time=="Mid",xaxis],scores.STRI[conditions.STRI$Time=="Mid",yaxis], col="orange", pch=17) +
+  points(scores.STRI[conditions.STRI$Time=="Early",xaxis],scores.STRI[conditions.STRI$Time=="Early",yaxis], col="orange", pch=19) +
+  points(scores.STRI[conditions.STRI$Time=="Mid",xaxis],scores.STRI[conditions.STRI$Time=="Mid",yaxis], col="green", pch=17) +
   points(scores.STRI[conditions.STRI$Time=="Late",xaxis],scores.STRI[conditions.STRI$Time=="Late",yaxis], col="blue", pch=15) 
-  legend("bottomright", c("Early", "Mid", "Late"), lwd=3, col=c("gold","orange","blue"), bty="n")
+  legend("bottomright", c("Early", "Mid", "Late"), lwd=3, col=c("green","green","blue"), bty="n")
+  
+# Correlate PC1 with temperature data
+firstAxisScores <- scores.Mid[,1] # these are the values in the first axis of variation
+#scores.Mid[,2] # these are the values in the second axis of variation
 
+maxTempJune_forLM <- c(rep(29.92,3),rep(29.70,3),rep(30.43,3),rep(NA,3), rep(NA,3),rep(NA,3),rep(29.51,3),rep(29.22,3)) # need to see if they are the same order and corrolated correctly
+
+plot(maxTempJune_forLM~firstAxisScores, na.rm=T)
+lm_temp_PC1 <- lm(maxTempJune_forLM~firstAxisScores)
+summary(lm_temp_PC1)
+abline(coef(lm_temp_PC1), col="red")
 
 # Shannon diversity -----
 sample <- as.vector(goods.STRI$sample)
@@ -735,7 +748,7 @@ plot(cmd.Mid, choices = axes2plot, display = "sites",
      xlab = paste("CAP1 ", round(perc.var.Mid[1],2)*100, "% variance explained",sep=""), 
      ylab = paste("CAP2 ", round(perc.var.Mid[2],2)*100, "% variance explained",sep=""),
      type="n")
-ordihull(cmd.Mid, groups=siteType, draw="polygon", label=F,col=c("salmon","royalblue4"))
+ordihull(cmd.Mid, groups=site, draw="polygon", label=F,col=c("salmon","royalblue4"))
 points(cmd.Mid, display="sites", pch=siteShape, col=siteTypeColor)
 legend("bottomleft", inset=.02, c("Inshore","Offshore"), 
        fill=c("salmon","royalblue4"), cex=0.8, bty='n')
