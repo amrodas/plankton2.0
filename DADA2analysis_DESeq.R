@@ -552,12 +552,16 @@ df.shannon.STRI$time <- factor(df.shannon.STRI$time, levels = c("Early", "Mid", 
 boxplot(shannonSTRI~time,data=df.shannon.STRI)
 
 sample <- as.vector(goods.Mid$sample)
-siteType <- as.vector(conditions.Mid$siteType)
+Site <- as.vector(conditions.Mid$Site)
 shannonMid <- diversity(goods.log.Mid, "shannon")
-df.shannon.Mid <- data.frame(sample,siteType,shannonMid)
-boxplot(shannonMid~siteType,data=df.shannon.Mid)
+df.shannon.Mid <- data.frame(sample,Site,shannonMid)
+levels(df.shannon.Mid$Site) 
+df.shannon.Mid$Site <- factor(df.shannon.Mid$Site, levels(df.shannon.Mid$Site)[c(6,8,3,7,1,2,4,5)])
+boxplot(shannonMid~Site,data=df.shannon.Mid, col =c("salmon","salmon","salmon","salmon","royalblue4", "royalblue4", "royalblue4", "royalblue4"))
 
 # Simpson -------
+
+
 sample <- as.vector(goods.STRI$sample)
 time <- as.vector(conditions.STRI$Time)
 simpsonSTRI <- diversity(goods.log.STRI, "simpson")
@@ -566,10 +570,13 @@ df.simpson.STRI$time <- factor(df.simpson.STRI$time, levels = c("Early", "Mid", 
 boxplot(simpsonSTRI~time,data=df.simpson.STRI)
 
 sample <- as.vector(goods.Mid$sample)
-siteType <- as.vector(conditions.Mid$siteType)
+Site <- as.vector(conditions.Mid$Site)
 simpsonMid <- diversity(goods.log.Mid, "simpson")
-df.simpson.Mid <- data.frame(sample,siteType,simpsonMid)
-boxplot(simpsonMid~siteType,data=df.simpson.Mid)
+df.simpson.Mid <- data.frame(sample,Site,simpsonMid)
+levels(df.simpson.Mid$Site) 
+df.simpson.Mid$Site <- factor(df.simpson.Mid$Site, levels(df.simpson.Mid$Site)[c(6,8,3,7,1,2,4,5)])
+boxplot(simpsonMid~Site,data=df.simpson.Mid, col =c("salmon","salmon","salmon","salmon","royalblue4", "royalblue4", "royalblue4", "royalblue4"))
+boxplot(simpsonMid~Site,data=df.simpson.Mid)
 
 # MCMC OTU analysis on site type midday only -----
   
