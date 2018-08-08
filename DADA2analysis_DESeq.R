@@ -359,7 +359,6 @@ save(sam_info, seqtab.nochim, taxa, ps, psSTRI, psMid, otu_taxa, otu_taxa_seq, f
 
 # START HERE FOR VEGAN ---------
 
-
 # Load in data
 load("startHere4vegan.Rdata")
 
@@ -496,7 +495,7 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
      xlab=paste("Axis", xaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[xaxis]*100,1),"%)",sep=""),
      ylab=paste("Axis", yaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
      main="PCoA by Site Ttype (Midday Only)") +
-  ordihull(scores.Mid,conditions.Mid$siteType,label=F, draw = "polygon", col = c("salmon", "royalblue4", alpha = 255))
+  ordihull(scores.Mid,conditions.Mid$site,label=F, draw = "polygon", col = c(rep("salmon",4), rep("royalblue4",4), alpha = 255))
 
   # inshore sites
   points(scores.Mid[conditions.Mid$Site=="PuntaDonato",xaxis],scores.Mid[conditions.Mid$Site=="PuntaDonato",yaxis], col="salmon", pch=19) +
@@ -530,19 +529,55 @@ plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
   legend("bottomright", c("Early", "Mid", "Late"), lwd=3, col=c("gold","orange","blue"), bty="n")
 
 
+# analysis of multivariate homogeneity of group dispersions (variances) -----
+
+# dispersion by site type (reef zone) midday only
+groups_siteType <- factor(conditions.Mid$siteType, labels = levels(conditions.Mid$siteType))
+mod_siteType <- betadisper(goods.dist.Mid, groups_siteType, type = "centroid")
+mod_siteType
+# Average distance to centroid:
+# inshore offshore 
+# 167.4    169.2  
+
+anova(mod_siteType)
+#Response: Distances
+# Df Sum Sq Mean Sq F value Pr(>F)
+# Groups     1   18.7  18.739  0.0729 0.7896
+# Residuals 22 5653.3 256.967
+
+# dispersion by site (midday only)
+groups_site <- factor(conditions.Mid$Site, labels = levels(conditions.Mid$Site))
+mod_site <- betadisper(goods.dist.Mid, groups_site, type = "centroid")
+mod_site
+# Average distance to centroid:
+# BastimentosN BastimentosS    Cristobal     DragoMar   PopaIsland  PuntaDonato  PuntaLaurel    STRIPoint 
+# 119.0        151.7        151.1        146.2        157.6        142.1        145.6        139.2
+anova(mod_site)
+# Response: Distances
+# Df Sum Sq Mean Sq F value  Pr(>F)  
+# Groups     7 2861.0  408.71  2.1824 0.09296 .
+# Residuals 16 2996.4  187.27  
+
+# dispersion by time of day (STRI only)
+groups_time <- factor(as.numeric(conditions.STRI$Time), labels = levels(conditions.STRI$Time))
+mod_time <- betadisper(goods.dist.STRI, groups_time, type = "centroid")
+mod_time
+
+anova(mod_time)
+
+
+
 # Shannon diversity -----
 sample <- as.vector(goods.STRI$sample)
 time <- as.vector(conditions.STRI$Time)
 shannonSTRI <- diversity(goods.log.STRI, "shannon")
 df.shannon.STRI <- data.frame(sample,time,shannonSTRI)
 df.shannon.STRI$time <- factor(df.shannon.STRI$time, levels = c("Early", "Mid", "Late"))
-boxplot(shannonSTRI~time,data=df.shannon.STRI)
 
 sample <- as.vector(goods.Mid$sample)
 siteType <- as.vector(conditions.Mid$siteType)
 shannonMid <- diversity(goods.log.Mid, "shannon")
 df.shannon.Mid <- data.frame(sample,siteType,shannonMid)
-boxplot(shannonMid~siteType,data=df.shannon.Mid)
 
 # Simpson -------
 sample <- as.vector(goods.STRI$sample)
@@ -550,13 +585,50 @@ time <- as.vector(conditions.STRI$Time)
 simpsonSTRI <- diversity(goods.log.STRI, "simpson")
 df.simpson.STRI <- data.frame(sample,time,simpsonSTRI,3)
 df.simpson.STRI$time <- factor(df.simpson.STRI$time, levels = c("Early", "Mid", "Late"))
-boxplot(simpsonSTRI~time,data=df.simpson.STRI)
 
 sample <- as.vector(goods.Mid$sample)
 siteType <- as.vector(conditions.Mid$siteType)
 simpsonMid <- diversity(goods.log.Mid, "simpson")
 df.simpson.Mid <- data.frame(sample,siteType,simpsonMid)
-boxplot(simpsonMid~siteType,data=df.simpson.Mid)
+
+# simpson and shannon plots
+ggShannonSTRI = ggplot(df.shannon.STRI, aes(x=time, y=shannonSTRI, fill=time, group=time))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("gold","orange","blue"))+
+  geom_jitter(width = 0.1)+
+  ylab("Shannon Diversity")+
+  ggtitle("STRI")+
+  theme_bw()
+ggShannonSTRI
+
+ggShannonMid = ggplot(df.shannon.Mid, aes(x=siteType, y=shannonMid, fill=siteType, group=siteType))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("salmon","royalblue4"))+
+  geom_jitter(width = 0.1)+
+  ylab("Shannon Diversity")+
+  ggtitle("Mid")+
+  theme_bw()
+ggShannonMid
+
+ggSimpsonSTRI = ggplot(df.simpson.STRI, aes(x=time, y=simpsonSTRI, fill=time, group=time))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("gold","orange","blue"))+
+  geom_jitter(width = 0.1)+
+  ylab("Simpson Diversity")+
+  ggtitle("STRI")+
+  theme_bw()
+ggSimpsonSTRI
+
+ggSimpsonMid = ggplot(df.simpson.Mid, aes(x=siteType, y=simpsonMid, fill=siteType, group=siteType))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("salmon","royalblue4"))+
+  geom_jitter(width = 0.1)+
+  ylab("Simpson Diversity")+
+  ggtitle("Mid")+
+  theme_bw()
+ggSimpsonMid
+
+gridExtra::grid.arrange(ggShannonMid,ggSimpsonMid,ggShannonSTRI,ggSimpsonSTRI,ncol=2)
 
 # MCMC OTU analysis on site type midday only -----
   
