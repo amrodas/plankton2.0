@@ -484,9 +484,6 @@ table(conditions.Mid$samID %in% goods.Mid$sample)
 scores.STRI <- goods.pcoa.STRI$vectors
 scores.Mid <- goods.pcoa.Mid$vectors
 margin <- 0.01
-set.seed(1)
-adonis.STRI <- adonis(goods.log.STRI~time,time,distance="manhattan")
-adonis.STRI$aov.tab$`Pr(>F)`[1]
 
 # play around with these numbers
 xaxis <- 1
@@ -536,8 +533,10 @@ plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
 # Correlate PC1 with temperature data
 firstAxisScores <- scores.Mid[,1] # these are the values in the first axis of variation
 #scores.Mid[,2] # these are the values in the second axis of variation
-
-maxTempJune_forLM <- c(rep(29.92,3),rep(29.70,3),rep(30.43,3),rep(NA,3), rep(NA,3),rep(NA,3),rep(29.51,3),rep(29.22,3)) # need to see if they are the same order and corrolated correctly
+goods.Mid$sample
+maxTempJune_forLM <- c(30.43,29.51,29.51,29.70,29.51,29.70,29.22,
+                       29.70,0,29.92,29.22,0,29.92,29.22,0,29.92,
+                       0,0,0,0,30.43,0,0,30.43)
 
 plot(maxTempJune_forLM~firstAxisScores, na.rm=T)
 lm_temp_PC1 <- lm(maxTempJune_forLM~firstAxisScores)
