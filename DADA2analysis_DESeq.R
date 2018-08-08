@@ -355,7 +355,7 @@ psSTRI <- subset_samples(ps, Site=="STRIPoint")
 psMid <- subset_samples(ps, Time=="Mid")
 
 # Save
-save(sam_info, seqtab.nochim, taxa, ps, psSTRI, psMid, otu_taxa, otu_taxa_seq, file="startHere4vegan.Rdata")
+# save(sam_info, seqtab.nochim, taxa, ps, psSTRI, psMid, otu_taxa, otu_taxa_seq, file="startHere4vegan.Rdata")
 
 # START HERE FOR VEGAN ---------
 
@@ -484,11 +484,14 @@ table(conditions.Mid$samID %in% goods.Mid$sample)
 scores.STRI <- goods.pcoa.STRI$vectors
 scores.Mid <- goods.pcoa.Mid$vectors
 margin <- 0.01
+set.seed(1)
+adonis.STRI <- adonis(goods.log.STRI~time,time,distance="manhattan")
+adonis.STRI$aov.tab$`Pr(>F)`[1]
 
 # play around with these numbers
 xaxis <- 1
 yaxis <- 2
-
+# PCoA for mid by site type
 plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
      xlim=c(min(scores.Mid[,xaxis])-margin,max(scores.Mid[,xaxis])+margin),
      ylim=c(min(scores.Mid[,2])-margin,max(scores.Mid[,2])+margin),
@@ -497,13 +500,11 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
      ylab=paste("Axis", yaxis,"(", round(goods.pcoa.Mid$values$Relative_eig[yaxis]*100,1),"%)",sep=""),
      main="PCoA by Site Ttype (Midday Only)") + 
   ordihull(scores.Mid,conditions.Mid$Site,label=F, draw = "polygon", col = c("royalblue4", "royalblue4", "salmon","royalblue4", "royalblue4", "salmon","salmon", "salmon", alpha = 255))
-
   # inshore sites
   points(scores.Mid[conditions.Mid$Site=="PuntaDonato",xaxis],scores.Mid[conditions.Mid$Site=="PuntaDonato",yaxis], col="salmon", pch=19) +
   points(scores.Mid[conditions.Mid$Site=="STRIPoint",xaxis],scores.Mid[conditions.Mid$Site=="STRIPoint",yaxis], col="salmon", pch=17) +  
   points(scores.Mid[conditions.Mid$Site=="Cristobal",xaxis],scores.Mid[conditions.Mid$Site=="Cristobal",yaxis], col="salmon", pch=15) +
   points(scores.Mid[conditions.Mid$Site=="PuntaLaurel",xaxis],scores.Mid[conditions.Mid$Site=="PuntaLaurel",yaxis], col="salmon", pch=18) 
-
   # offshore sites
   points(scores.Mid[conditions.Mid$Site=="DragoMar",xaxis],scores.Mid[conditions.Mid$Site=="DragoMar",yaxis], col="royalblue4", pch=1) +
   points(scores.Mid[conditions.Mid$Site=="BastimentosN",xaxis],scores.Mid[conditions.Mid$Site=="BastimentosN",yaxis], col="royalblue4", pch=2) +
@@ -515,7 +516,7 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
            pch=c(19,17,15,18,1,2,0,5), 
          col=c("salmon", "salmon","salmon","salmon","royalblue4","royalblue4","royalblue4","royalblue4"), cex=0.4, bty = "n")
   
-  
+# STRIPoint by time of day  
 plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
        xlim=c(min(scores.STRI[,xaxis])-margin,max(scores.STRI[,xaxis])+margin),
        ylim=c(min(scores.STRI[,2])-margin,max(scores.STRI[,2])+margin),
@@ -526,11 +527,11 @@ plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
       ordihull(scores.STRI,conditions.STRI$Time,label=F, 
                draw = "polygon", col = c("orange", "green","blue", alpha = 255))
       # ordispider(scores.STRI,conditions.STRI$Time,label=F,lwd=2,col = c("gold", "orange", "blue"))
-#STRIPoint by time of day 
   points(scores.STRI[conditions.STRI$Time=="Early",xaxis],scores.STRI[conditions.STRI$Time=="Early",yaxis], col="orange", pch=19) +
   points(scores.STRI[conditions.STRI$Time=="Mid",xaxis],scores.STRI[conditions.STRI$Time=="Mid",yaxis], col="green", pch=17) +
   points(scores.STRI[conditions.STRI$Time=="Late",xaxis],scores.STRI[conditions.STRI$Time=="Late",yaxis], col="blue", pch=15) 
   legend("bottomright", c("Early", "Mid", "Late"), lwd=3, col=c("green","green","blue"), bty="n")
+  
   
 # Correlate PC1 with temperature data
 firstAxisScores <- scores.Mid[,1] # these are the values in the first axis of variation
@@ -559,6 +560,9 @@ levels(df.shannon.Mid$Site)
 df.shannon.Mid$Site <- factor(df.shannon.Mid$Site, levels(df.shannon.Mid$Site)[c(6,8,3,7,1,2,4,5)])
 boxplot(shannonMid~Site,data=df.shannon.Mid, col =c("salmon","salmon","salmon","salmon","royalblue4", "royalblue4", "royalblue4", "royalblue4"))
 
+head(df.shannon.Mid)
+aov1=aov(shannonMid~Site, data=df.shannon.Mid)
+summary(aov1)
 # Simpson -------
 
 
@@ -578,6 +582,8 @@ df.simpson.Mid$Site <- factor(df.simpson.Mid$Site, levels(df.simpson.Mid$Site)[c
 boxplot(simpsonMid~Site,data=df.simpson.Mid, col =c("salmon","salmon","salmon","salmon","royalblue4", "royalblue4", "royalblue4", "royalblue4"))
 boxplot(simpsonMid~Site,data=df.simpson.Mid)
 
+aov2=aov(simpsonMid~Site, data=df.simpson.Mid)
+summary(aov2)
 # MCMC OTU analysis on site type midday only -----
   
 # reformat data for mcmc.otu
@@ -722,7 +728,7 @@ perc.var.Mid <- eig.Mid/sum(eig.Mid)
 cmd.scores.Mid <- scores(cmd.Mid)
 cmd.scores.Mid
 
-# CAPSCALE STATS
+# STATS----
 anova(cmd.STRI)
 step(cmd.STRI)
 # about ____% of variation is due to constraints (i.e. model factors)
@@ -731,10 +737,12 @@ set.seed(1)
 adonis.STRI <- adonis(goods.log.STRI~time,time,distance="manhattan")
 adonis.STRI$aov.tab$`Pr(>F)`[1]
 # p = 0.228
+
 set.seed(1)
 adonis.Mid <- adonis(goods.log.Mid~site+siteType,metaData.Mid,distance="manhattan")
 adonis.Mid$aov.tab$`Pr(>F)`[1]
-# p = 0.626
+# p = 0.626 for site+siteType and site 
+# p = 0.489 for sitetype
 
 # Plot CAPSCALE
 axes2plot <- c(1,2)  # try 2,3 too
