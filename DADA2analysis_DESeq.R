@@ -508,10 +508,10 @@ plot(scores.Mid[,xaxis], scores.Mid[,2],type="n",
   points(scores.Mid[conditions.Mid$Site=="BastimentosS",xaxis],scores.Mid[conditions.Mid$Site=="BastimentosS",yaxis], col="royalblue4", pch=0) +
   points(scores.Mid[conditions.Mid$Site=="PopaIsland",xaxis],scores.Mid[conditions.Mid$Site=="PopaIsland",yaxis], col="royalblue4", pch=5)
   
-  legend(86,-20, 
+  legend(0,50, 
          c("PuntaDonato","STRIPoint","Cristobal","PuntaLaurel","BastimentosN","BastimentosS","DragoMar","PopaIsland"),
            pch=c(19,17,15,18,1,2,0,5), 
-         col=c("salmon", "salmon","salmon","salmon","royalblue4","royalblue4","royalblue4","royalblue4"), cex=0.4, bty = "n")
+         col=c("salmon", "salmon","salmon","salmon","royalblue4","royalblue4","royalblue4","royalblue4"), cex=0.6, bty = "n")
   
 # STRIPoint by time of day  
 plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
@@ -527,7 +527,7 @@ plot(scores.STRI[,xaxis], scores.STRI[,2],type="n",
   points(scores.STRI[conditions.STRI$Time=="Early",xaxis],scores.STRI[conditions.STRI$Time=="Early",yaxis], col="orange", pch=19) +
   points(scores.STRI[conditions.STRI$Time=="Mid",xaxis],scores.STRI[conditions.STRI$Time=="Mid",yaxis], col="green", pch=17) +
   points(scores.STRI[conditions.STRI$Time=="Late",xaxis],scores.STRI[conditions.STRI$Time=="Late",yaxis], col="blue", pch=15) 
-  legend("bottomright", c("Early", "Mid", "Late"), lwd=3, col=c("green","green","blue"), bty="n")
+  # legend(50,-60, c("Early", "Mid", "Late"), lwd=2, col=c("orange","green","blue"), bty="n")
   
 
 # analysis of multivariate homogeneity of group dispersions (variances) -----
